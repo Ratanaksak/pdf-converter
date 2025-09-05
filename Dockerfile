@@ -1,39 +1,28 @@
-# Use official Python image (slim)
+# Base image with Python
 FROM python:3.10-slim
 
-# install system packages (poppler, tesseract + khmer language files) and useful tools
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      build-essential \
-      poppler-utils \
-      tesseract-ocr \
-      tesseract-ocr-khm \
-      libgl1 \
-      libglib2.0-0 \
+# Install system dependencies (poppler, tesseract, fonts)
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-khm \
+    libsm6 libxext6 libxrender-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# set workdir
+# Set workdir
 WORKDIR /app
 
-# copy python deps first (cache)
+# Copy requirements first (for caching)
 COPY requirements.txt .
 
-# install python deps
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# copy app
+# Copy project files
 COPY . .
 
-# ensure uploads and static exist
-RUN mkdir -p uploads static
+# Expose the Render expected port
+EXPOSE 10000
 
-# env
-ENV PYTHONUNBUFFERED=1
-ENV TESSERACT_CMD=/usr/bin/tesseract
-ENV POPPLER_PATH=/usr/bin
-
-# expose port
-EXPOSE 5000
-
-# run with gunicorn; app:app must match your Flask app variable
-CMD ["gunicorn", "app:app", "-b", "0.0.0.0:5000", "--workers", "2", "--timeout", "120"]
+# Run with Gunicorn, binding to $PORT
+CMD ["gunicorn", "-b", "0.0.0.0:${PORT}", "app:app"]
